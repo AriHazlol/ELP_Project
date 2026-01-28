@@ -63,6 +63,16 @@ update msg model =
                 [ "lt" ] ->
                     rotateTurtle -90 model
 
+
+                [ "cercle"] -> 
+                        drawCircle 50 model
+
+                [ "carre"] ->
+                    drawSquare 50 model
+
+                [ "etoile" ] ->
+                    drawStar 50 model
+
                 [ "fd", valStr ] ->
                     moveForward (Maybe.withDefault 50 (String.toFloat valStr)) model
                 

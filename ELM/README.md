@@ -12,3 +12,5 @@
 | etoile [valeur] | Forme une étoile de longueur [valeur] | 50 |
 | clear | Efface les traits sans réinitialiser la position de la tortue | / |
 | reset | Efface les traits et réinitialise la position de la tortue | / |
+
+## 3. Pistes d'amélioration

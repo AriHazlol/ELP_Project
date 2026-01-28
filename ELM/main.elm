@@ -1,8 +1,5 @@
 module Main exposing (..)
 
--- A AJOUTER : FAIRE EN SORTE QUE LA CASE TEXTE SOIT DE TAILLE FIXE
--- AJOUTER COMMANDES + CHEATSHEET POUR DOCU DES COMMANDES + CHANGER COULEUR DU STYLO ET DU FOND (optionnel)
-
 import Browser
 import Html exposing (Html, div, textarea, button, text, h1)
 import Html.Attributes as Attr
@@ -56,21 +53,36 @@ update msg model =
                 words = String.words (String.toLower model.commandInput)
             in
             case words of
+
+                [ "fd"] ->
+                    moveForward 50 model
+                
+                [ "rt" ] ->
+                    rotateTurtle 90 model
+
+                [ "lt" ] ->
+                    rotateTurtle -90 model
+
                 [ "fd", valStr ] ->
-                    moveForward (Maybe.withDefault 0 (String.toFloat valStr)) model
+                    moveForward (Maybe.withDefault 50 (String.toFloat valStr)) model
                 
                 [ "rt", valStr ] ->
-                    rotateTurtle (Maybe.withDefault 0 (String.toFloat valStr)) model
+                    rotateTurtle (Maybe.withDefault 90 (String.toFloat valStr)) model
 
                 [ "lt", valStr ] ->
-                    rotateTurtle (-(Maybe.withDefault 0 (String.toFloat valStr))) model
+                    rotateTurtle (-(Maybe.withDefault 90 (String.toFloat valStr))) model
+
                 [ "cercle", valStr] -> 
-                        drawCircle (Maybe.withDefault 0 (String.toFloat valStr)) model
-                [ "carré", valStr] ->
-                    drawSquare (Maybe.withDefault 0 (String.toFloat valStr)) model
+                        drawCircle (Maybe.withDefault 50 (String.toFloat valStr)) model
+
+                [ "carre", valStr] ->
+                    drawSquare (Maybe.withDefault 50 (String.toFloat valStr)) model
 
                 [ "etoile", valStr ] ->
-                    drawStar (Maybe.withDefault 0 (String.toFloat valStr)) model
+                    drawStar (Maybe.withDefault 50 (String.toFloat valStr)) model
+                
+                [ "reset" ] ->
+                    init
 
                 [ "clear" ] ->
                     let t = model.turtle in
@@ -135,7 +147,7 @@ drawCircle radius model =
             else
                 drawSteps (n - 1) (currentModel |> moveForward stepSize |> rotateTurtle 10)
     in
-    drawSteps 36 model
+    drawSteps 360 model
 
 
 -- VUE
@@ -176,7 +188,7 @@ view model =
             [ textarea 
                 [ onInput UpdateInput
                 , Attr.value model.commandInput
-                , Attr.placeholder "fd 100, rt 90, carré, etoile..."
+                , Attr.placeholder "Veuillez entrer une commande (ex : fd 100, rt 90, carre 100...)"
                 , Attr.style "width" "100%"
                 , Attr.style "height" "60px"
                 , Attr.style "padding" "10px"
@@ -184,6 +196,7 @@ view model =
                 , Attr.style "border-radius" "8px"
                 , Attr.style "box-sizing" "border-box"
                 , Attr.style "font-size" "16px"
+                , Attr.style "resize" "none"
                 ] []
             
             , div [ Attr.style "display" "flex", Attr.style "gap" "10px", Attr.style "margin-top" "10px" ]

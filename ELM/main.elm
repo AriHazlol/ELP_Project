@@ -303,8 +303,12 @@ view model =
             , Attr.style "resize" "none"
             ] []
             , div [ Attr.style "margin-top" "8px", Attr.style "display" "flex", Attr.style "gap" "10px" ]
-                [ button [ onClick (UpdateInput "repeat 6 [ fd 60, rt 60 ]"), miniBtnStyle ] [ text "Exemple : Hexagone" ]
-                , button [ onClick (UpdateInput "repeat 12 [ carre 50, rt 30 ]"), miniBtnStyle ] [ text "Exemple : Fleurs de carrés" ]
+                [ button 
+                    (onClick (UpdateInput "repeat 6 [ fd 60, rt 60 ]") :: miniBtnStyles) 
+                    [ text "Exemple : Hexagone" ]
+                , button 
+                    (onClick (UpdateInput "repeat 12 [ carre 50, rt 30 ]") :: miniBtnStyles) 
+                    [ text "Exemple : Fleurs de carrés" ]
                 ]
             
             , div [ Attr.style "display" "flex", Attr.style "gap" "10px", Attr.style "margin-top" "15px" ]
@@ -330,13 +334,15 @@ viewTurtle t =
         ]
 
 
-miniBtnStyle = 
-    Attr.style "font-size" "11px" 
-    |> (\a -> Attr.style "padding" "5px 10px") 
-    |> (\a -> Attr.style "cursor" "pointer")
-    |> (\a -> Attr.style "border-radius" "4px")
-    |> (\a -> Attr.style "background" "#fff")
-    |> (\a -> Attr.style "border" "1px solid #ccc")
+miniBtnStyles : List (Html.Attribute Msg)
+miniBtnStyles = 
+    [ Attr.style "font-size" "11px"
+    , Attr.style "padding" "5px 10px"
+    , Attr.style "cursor" "pointer"
+    , Attr.style "border-radius" "4px"
+    , Attr.style "background" "#fff"
+    , Attr.style "border" "1px solid #ccc"
+    ]
 
 commonBtnStyles : String -> List (Html.Attribute Msg)
 commonBtnStyles color =
@@ -360,5 +366,7 @@ turtleTransform : Turtle -> String
 turtleTransform t =
     "translate(" ++ String.fromFloat t.x ++ "," ++ String.fromFloat t.y ++ ") rotate(" ++ String.fromFloat t.angle ++ ")"
 
+
+main : Program () Model Msg
 main =
     Browser.sandbox { init = init, update = update, view = view }

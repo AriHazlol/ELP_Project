@@ -214,6 +214,7 @@ drawSquare size model =
 drawStar : Float -> Model -> Model
 drawStar size model =
     model 
+        |> rotateTurtle 18
         |> moveForward size |> rotateTurtle 144
         |> moveForward size |> rotateTurtle 144
         |> moveForward size |> rotateTurtle 144

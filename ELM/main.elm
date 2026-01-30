@@ -1,7 +1,7 @@
 module Main exposing (..)
 
 import Browser
-import Html exposing (Html, div, textarea, button, text, h1)
+import Html exposing (Html, div, textarea, button, text, h1, p)
 import Html.Attributes as Attr
 import Html.Events exposing (onInput, onClick)
 import Svg exposing (svg, polyline, circle, g, ellipse)
@@ -20,6 +20,18 @@ type alias Model =
     { turtle : Turtle
     , commandInput : String
     }
+
+-- Structure pour la récursion head::tail
+type Command
+    = Forward Float
+    | Right Float
+    | Left Float
+    | CmdCarre Float
+    | CmdCercle Float
+    | CmdEtoile Float
+    | Repeat Int (List Command)
+    | Clear
+    | ResetAll
 
 init : Model
 init =
@@ -50,56 +62,129 @@ update msg model =
 
         Execute ->
             let
-                words = String.words (String.toLower model.commandInput)
+                -- Préparation des mots (Tokens)
+                tokens = 
+                    model.commandInput
+                        |> String.replace "[" " [ "
+                        |> String.replace "]" " ] "
+                        |> String.replace "," " "
+                        |> String.toLower
+                        |> String.words
+                
+                -- Parsing récursif (Head::Tail)
+                (commands, _) = parseTokens tokens
             in
-            case words of
+            -- Exécution récursive (Head::Tail)
+            runCommands commands model
 
-                [ "fd"] ->
-                    moveForward 50 model
-                
-                [ "rt" ] ->
-                    rotateTurtle 90 model
+parseTokens : List String -> (List Command, List String)
+parseTokens tokens =
+    case tokens of
+        [] -> 
+            ( [], [] )
 
-                [ "lt" ] ->
-                    rotateTurtle -90 model
+        "]" :: rest -> 
+            ( [], rest )
+
+        -- REINTEGRATION DE TES COMMANDES SPECIFIQUES AVEC VALEURS PAR DEFAUT
+        "fd" :: valStr :: rest -> 
+            if valStr == "[" then parseRepeat tokens else addCommand (Forward (Maybe.withDefault 50 (String.toFloat valStr))) rest
+        "fd" :: rest -> 
+            addCommand (Forward 50) rest
+
+        "rt" :: valStr :: rest -> 
+            if valStr == "[" then parseRepeat tokens else addCommand (Right (Maybe.withDefault 90 (String.toFloat valStr))) rest
+        "rt" :: rest -> 
+            addCommand (Right 90) rest
+
+        "lt" :: valStr :: rest -> 
+            if valStr == "[" then parseRepeat tokens else addCommand (Left (Maybe.withDefault 90 (String.toFloat valStr))) rest
+        "lt" :: rest -> 
+            addCommand (Left 90) rest
+
+        "carre" :: valStr :: rest -> 
+            if valStr == "[" then parseRepeat tokens else addCommand (CmdCarre (Maybe.withDefault 50 (String.toFloat valStr))) rest
+        "carre" :: rest -> 
+            addCommand (CmdCarre 50) rest
+
+        "cercle" :: valStr :: rest -> 
+            if valStr == "[" then parseRepeat tokens else addCommand (CmdCercle (Maybe.withDefault 50 (String.toFloat valStr))) rest
+        "cercle" :: rest -> 
+            addCommand (CmdCercle 50) rest
+
+        "etoile" :: valStr :: rest -> 
+            if valStr == "[" then parseRepeat tokens else addCommand (CmdEtoile (Maybe.withDefault 50 (String.toFloat valStr))) rest
+        "etoile" :: rest -> 
+            addCommand (CmdEtoile 50) rest
+
+        "clear" :: rest -> 
+            addCommand Clear rest
+
+        "reset" :: rest -> 
+            addCommand ResetAll rest
+
+        "repeat" :: nStr :: "[" :: rest ->
+            let
+                n = String.toInt nStr |> Maybe.withDefault 1
+                (innerCmds, remainingAfterBracket) = parseTokens rest
+                (nextCmds, finalRemaining) = parseTokens remainingAfterBracket
+            in
+            ( Repeat n innerCmds :: nextCmds, finalRemaining )
+
+        -- Si on ne reconnaît pas le mot, on continue
+        _ :: rest -> 
+            parseTokens rest
+
+-- Fonction auxiliaire pour ne pas casser la logique repeat
+parseRepeat : List String -> (List Command, List String)
+parseRepeat tokens = ([], tokens)
+
+addCommand : Command -> List String -> (List Command, List String)
+addCommand cmd rest =
+    let 
+        (nextCmds, finalRemaining) = parseTokens rest
+    in 
+    ( cmd :: nextCmds, finalRemaining )
+
+getFloat : String -> Float
+getFloat s = 
+    String.toFloat s |> Maybe.withDefault 50.0
 
 
-                [ "cercle"] -> 
-                        drawCircle 50 model
+runCommands : List Command -> Model -> Model
+runCommands commands model =
+    case commands of
+        [] -> 
+            model
 
-                [ "carre"] ->
-                    drawSquare 50 model
+        cmdHead :: cmdTail ->
+            let
+                newModel = executeSingleCommand cmdHead model
+            in
+            runCommands cmdTail newModel
 
-                [ "etoile" ] ->
-                    drawStar 50 model
-
-                [ "fd", valStr ] ->
-                    moveForward (Maybe.withDefault 50 (String.toFloat valStr)) model
-                
-                [ "rt", valStr ] ->
-                    rotateTurtle (Maybe.withDefault 90 (String.toFloat valStr)) model
-
-                [ "lt", valStr ] ->
-                    rotateTurtle (-(Maybe.withDefault 90 (String.toFloat valStr))) model
-
-                [ "cercle", valStr] -> 
-                        drawCircle (Maybe.withDefault 50 (String.toFloat valStr)) model
-
-                [ "carre", valStr] ->
-                    drawSquare (Maybe.withDefault 50 (String.toFloat valStr)) model
-
-                [ "etoile", valStr ] ->
-                    drawStar (Maybe.withDefault 50 (String.toFloat valStr)) model
-                
-                [ "reset" ] ->
-                    init
-
-                [ "clear" ] ->
-                    let t = model.turtle in
-                    { model | turtle = { t | path = [ (t.x, t.y) ] } }
-
-                _ ->
-                    model
+executeSingleCommand : Command -> Model -> Model
+executeSingleCommand cmd model =
+    case cmd of
+        Forward d -> moveForward d model
+        Right d -> rotateTurtle d model
+        Left d -> rotateTurtle -d model
+        CmdCarre s -> drawSquare s model
+        CmdCercle r -> drawCircle r model
+        CmdEtoile s -> drawStar s model
+        Clear -> 
+            let t = model.turtle 
+            in { model | turtle = { t | path = [ (t.x, t.y) ] } }
+        ResetAll -> init
+        Repeat n subCmds ->
+            if n <= 0 then 
+                model
+            else 
+                -- On exécute la liste interne, puis on décrémente n
+                let
+                    modelAfterOnePass = runCommands subCmds model
+                in
+                executeSingleCommand (Repeat (n - 1) subCmds) modelAfterOnePass
 
 moveForward : Float -> Model -> Model
 moveForward dist model =
@@ -128,37 +213,24 @@ drawSquare size model =
 
 drawStar : Float -> Model -> Model
 drawStar size model =
-    let
-        originalAngle = model.turtle.angle
-
-        preparedModel = 
-            let t = model.turtle 
-            in { model | turtle = { t | angle = -72 } }
-        
-        drawnModel =
-            preparedModel
-                |> moveForward size |> rotateTurtle 144
-                |> moveForward size |> rotateTurtle 144
-                |> moveForward size |> rotateTurtle 144
-                |> moveForward size |> rotateTurtle 144
-                |> moveForward size |> rotateTurtle 144
-    in
-    let finalTurtle = drawnModel.turtle
-    in { drawnModel | turtle = { finalTurtle | angle = originalAngle } }
+    model 
+        |> moveForward size |> rotateTurtle 144
+        |> moveForward size |> rotateTurtle 144
+        |> moveForward size |> rotateTurtle 144
+        |> moveForward size |> rotateTurtle 144
+        |> moveForward size |> rotateTurtle 144
 
 drawCircle : Float -> Model -> Model
 drawCircle radius model =
     let
         stepSize = (2 * pi * radius) / 36
-        
         drawSteps n currentModel =
             if n <= 0 then
                 currentModel
             else
                 drawSteps (n - 1) (currentModel |> moveForward stepSize |> rotateTurtle 10)
     in
-    drawSteps 360 model
-
+    drawSteps 36 model
 
 -- VUE
 
@@ -198,9 +270,9 @@ view model =
             [ textarea 
                 [ onInput UpdateInput
                 , Attr.value model.commandInput
-                , Attr.placeholder "Veuillez entrer une commande (ex : fd 100, rt 90, carre 100...)"
+                , Attr.placeholder "Veuillez entrer une commande (ex : fd 100, etoile 50...)"
                 , Attr.style "width" "100%"
-                , Attr.style "height" "60px"
+                , Attr.style "height" "80px"
                 , Attr.style "padding" "10px"
                 , Attr.style "border" "1px solid #ccc"
                 , Attr.style "border-radius" "8px"
@@ -209,7 +281,12 @@ view model =
                 , Attr.style "resize" "none"
                 ] []
             
-            , div [ Attr.style "display" "flex", Attr.style "gap" "10px", Attr.style "margin-top" "10px" ]
+            , div [ Attr.style "margin-top" "8px", Attr.style "display" "flex", Attr.style "gap" "10px" ]
+                [ button [ onClick (UpdateInput "repeat 6 [ fd 60, rt 60 ]"), miniBtnStyle ] [ text "Exemple : Hexagone" ]
+                , button [ onClick (UpdateInput "repeat 12 [ carre 50, rt 30 ]"), miniBtnStyle ] [ text "Exemple : Fleurs de carrés" ]
+                ]
+            
+            , div [ Attr.style "display" "flex", Attr.style "gap" "10px", Attr.style "margin-top" "15px" ]
                 (List.map (\(label, msg, color) -> 
                     button (onClick msg :: commonBtnStyles color) [ text label ]
                 ) 
@@ -222,8 +299,7 @@ view model =
 viewTurtle : Turtle -> Svg.Svg Msg
 viewTurtle t =
     g [ SvgAttr.transform (turtleTransform t) ]
-        [
-          circle [ SvgAttr.cx "-8", SvgAttr.cy "-8", SvgAttr.r "3", SvgAttr.fill "#1b5e20" ] []
+        [ circle [ SvgAttr.cx "-8", SvgAttr.cy "-8", SvgAttr.r "3", SvgAttr.fill "#1b5e20" ] []
         , circle [ SvgAttr.cx "8", SvgAttr.cy "-8", SvgAttr.r "3", SvgAttr.fill "#1b5e20" ] []
         , circle [ SvgAttr.cx "-8", SvgAttr.cy "8", SvgAttr.r "3", SvgAttr.fill "#1b5e20" ] []
         , circle [ SvgAttr.cx "8", SvgAttr.cy "8", SvgAttr.r "3", SvgAttr.fill "#1b5e20" ] []
@@ -231,12 +307,21 @@ viewTurtle t =
         , circle [ SvgAttr.cx "16", SvgAttr.cy "0", SvgAttr.r "5", SvgAttr.fill "#2e7d32" ] []
         ]
 
+
+miniBtnStyle = 
+    Attr.style "font-size" "11px" 
+    |> (\a -> Attr.style "padding" "5px 10px") 
+    |> (\a -> Attr.style "cursor" "pointer")
+    |> (\a -> Attr.style "border-radius" "4px")
+    |> (\a -> Attr.style "background" "#fff")
+    |> (\a -> Attr.style "border" "1px solid #ccc")
+
 commonBtnStyles : String -> List (Html.Attribute Msg)
 commonBtnStyles color =
     [ Attr.style "background" color
     , Attr.style "color" "white"
     , Attr.style "border" "none"
-    , Attr.style "padding" "10px"
+    , Attr.style "padding" "12px"
     , Attr.style "border-radius" "6px"
     , Attr.style "cursor" "pointer"
     , Attr.style "flex" "1"
@@ -252,8 +337,6 @@ pointsToString path =
 turtleTransform : Turtle -> String
 turtleTransform t =
     "translate(" ++ String.fromFloat t.x ++ "," ++ String.fromFloat t.y ++ ") rotate(" ++ String.fromFloat t.angle ++ ")"
-
--- MAIN
 
 main =
     Browser.sandbox { init = init, update = update, view = view }

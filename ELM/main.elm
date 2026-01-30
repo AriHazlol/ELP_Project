@@ -1,9 +1,10 @@
 module Main exposing (..)
 
 import Browser
-import Html exposing (Html, div, textarea, button, text, h1, p)
+import Html exposing (Html, div, textarea, button, text, h1)
 import Html.Attributes as Attr
-import Html.Events exposing (onInput, onClick)
+import Html.Events exposing (onInput, onClick, on, keyCode)
+import Json.Decode as Decode
 import Svg exposing (svg, polyline, circle, g, ellipse)
 import Svg.Attributes as SvgAttr
 
@@ -21,7 +22,6 @@ type alias Model =
     , commandInput : String
     }
 
--- Structure pour la récursion head::tail
 type Command
     = Forward Float
     | Right Float
@@ -50,6 +50,7 @@ type Msg
     = UpdateInput String
     | Execute
     | Reset
+    | ClearInput
 
 update : Msg -> Model -> Model
 update msg model =
@@ -60,9 +61,10 @@ update msg model =
         Reset ->
             init
 
+        ClearInput ->
+            {model | commandInput = ""}
         Execute ->
             let
-                -- Préparation des mots (Tokens)
                 tokens = 
                     model.commandInput
                         |> String.replace "[" " [ "
@@ -71,35 +73,38 @@ update msg model =
                         |> String.toLower
                         |> String.words
                 
-                -- Parsing récursif (Head::Tail)
                 (commands, _) = parseTokens tokens
             in
-            -- Exécution récursive (Head::Tail)
             runCommands commands model
 
 parseTokens : List String -> (List Command, List String)
 parseTokens tokens =
     case tokens of
-        [] -> 
-            ( [], [] )
+        [] -> ( [], [] )
+        "]" :: rest -> ( [], rest )
 
-        "]" :: rest -> 
-            ( [], rest )
+        "fd" :: valStr :: rest ->
+            case String.toFloat valStr of
+                Just val -> addCommand (Forward val) rest
+                Nothing -> addCommand (Forward 50) (valStr :: rest) -- On remet valStr dans la liste car c'est sûrement la commande suivante
 
-        -- REINTEGRATION DE TES COMMANDES SPECIFIQUES AVEC VALEURS PAR DEFAUT
-        "fd" :: valStr :: rest -> 
-            if valStr == "[" then parseRepeat tokens else addCommand (Forward (Maybe.withDefault 50 (String.toFloat valStr))) rest
-        "fd" :: rest -> 
+        "fd" :: rest ->
             addCommand (Forward 50) rest
 
-        "rt" :: valStr :: rest -> 
-            if valStr == "[" then parseRepeat tokens else addCommand (Right (Maybe.withDefault 90 (String.toFloat valStr))) rest
-        "rt" :: rest -> 
+        "rt" :: valStr :: rest ->
+            case String.toFloat valStr of
+                Just val -> addCommand (Right val) rest
+                Nothing -> addCommand (Right 90) (valStr :: rest)
+
+        "rt" :: rest ->
             addCommand (Right 90) rest
 
-        "lt" :: valStr :: rest -> 
-            if valStr == "[" then parseRepeat tokens else addCommand (Left (Maybe.withDefault 90 (String.toFloat valStr))) rest
-        "lt" :: rest -> 
+        "lt" :: valStr :: rest ->
+            case String.toFloat valStr of
+                Just val -> addCommand (Left val) rest
+                Nothing -> addCommand (Left 90) (valStr :: rest)
+
+        "lt" :: rest ->
             addCommand (Left 90) rest
 
         "carre" :: valStr :: rest -> 
@@ -212,14 +217,23 @@ drawSquare size model =
         |> moveForward size |> rotateTurtle 90
 
 drawStar : Float -> Model -> Model
+
 drawStar size model =
-    model 
-        |> rotateTurtle 18
-        |> moveForward size |> rotateTurtle 144
-        |> moveForward size |> rotateTurtle 144
-        |> moveForward size |> rotateTurtle 144
-        |> moveForward size |> rotateTurtle 144
-        |> moveForward size |> rotateTurtle 144
+    let
+        originalAngle = model.turtle.angle
+        preparedModel = 
+            let t = model.turtle 
+            in { model | turtle = { t | angle = -72 } }
+        drawnModel =
+            preparedModel
+                |> moveForward size |> rotateTurtle 144
+                |> moveForward size |> rotateTurtle 144
+                |> moveForward size |> rotateTurtle 144
+                |> moveForward size |> rotateTurtle 144
+                |> moveForward size |> rotateTurtle 144
+    in
+    let finalTurtle = drawnModel.turtle
+    in { drawnModel | turtle = { finalTurtle | angle = originalAngle } }
 
 drawCircle : Float -> Model -> Model
 drawCircle radius model =
@@ -268,20 +282,26 @@ view model =
             ]
         
         , div [ Attr.style "margin-top" "20px", Attr.style "width" "450px" ]
-            [ textarea 
-                [ onInput UpdateInput
-                , Attr.value model.commandInput
-                , Attr.placeholder "Veuillez entrer une commande (ex : fd 100, etoile 50...)"
-                , Attr.style "width" "100%"
-                , Attr.style "height" "80px"
-                , Attr.style "padding" "10px"
-                , Attr.style "border" "1px solid #ccc"
-                , Attr.style "border-radius" "8px"
-                , Attr.style "box-sizing" "border-box"
-                , Attr.style "font-size" "16px"
-                , Attr.style "resize" "none"
-                ] []
-            
+        [textarea 
+            [ onInput UpdateInput
+            , on "keydown" 
+                (keyCode 
+                    |> Decode.andThen (\code -> 
+                        if code == 13 then 
+                            Decode.succeed Execute 
+                        else 
+                            Decode.fail "not enter"
+                    )
+                )
+            , Attr.value model.commandInput
+            , Attr.style "width" "100%"
+            , Attr.style "height" "80px"
+            , Attr.style "padding" "10px"
+            , Attr.style "border" "1px solid #ccc"
+            , Attr.style "border-radius" "8px"
+            , Attr.style "font-size" "16px"
+            , Attr.style "resize" "none"
+            ] []
             , div [ Attr.style "margin-top" "8px", Attr.style "display" "flex", Attr.style "gap" "10px" ]
                 [ button [ onClick (UpdateInput "repeat 6 [ fd 60, rt 60 ]"), miniBtnStyle ] [ text "Exemple : Hexagone" ]
                 , button [ onClick (UpdateInput "repeat 12 [ carre 50, rt 30 ]"), miniBtnStyle ] [ text "Exemple : Fleurs de carrés" ]
@@ -293,6 +313,7 @@ view model =
                 ) 
                 [ ("Executer", Execute, "#f3d541ff")
                 , ("Reset", Reset, "#973ce7ff")
+                , ("Effacer le texte", ClearInput, "#e74c3c")
                 ])
             ]
         ]

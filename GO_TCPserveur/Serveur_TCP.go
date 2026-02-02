@@ -158,6 +158,7 @@ func main() {
 
 	for {
 		conn, _ := ln.Accept()
+		fmt.Println("Connexion établie, Traitement en cours...")
 		go func(c net.Conn) {
 			defer c.Close()
 			reader := bufio.NewReader(c)
@@ -178,6 +179,8 @@ func main() {
 					binary.BigEndian.PutUint32(respLen[:], uint32(len(result)))
 					c.Write(respLen[:])
 					c.Write(result)
+					fmt.Println("Image Traitée avec succés.")
+					fmt.Println("En attente d'une nouvelle image...")
 				}
 			}
 		}(conn)

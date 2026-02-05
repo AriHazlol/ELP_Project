@@ -14,7 +14,6 @@ type alias Turtle =
     { x : Float
     , y : Float
     , angle : Float 
-    -- MODIFICATION : Le chemin est maintenant une liste de segments (Début, Fin, Couleur)
     , path : List ((Float, Float), (Float, Float), String)
     }
 
@@ -188,7 +187,6 @@ moveForward dist model =
         rad = t.angle * (pi / 180)
         newX = t.x + dist * cos rad
         newY = t.y + dist * sin rad
-        -- On ajoute un segment avec la couleur actuelle du modèle
         newPath = t.path ++ [ ((t.x, t.y), (newX, newY), model.strokeColor) ]
     in
     { model | turtle = { t | x = newX, y = newY, path = newPath } }

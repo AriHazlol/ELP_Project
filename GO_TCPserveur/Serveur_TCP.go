@@ -23,7 +23,7 @@ type Job struct {
 	ReplyCh chan []byte
 }
 
-// --- LOGIQUE DE DESSIN IDENTIQUE AU MAIN-2 ---
+// --- LOGIQUE DE DESSIN IDENTIQUE AU MAIN ---
 
 func drawLinesCustom(img *image.RGBA, lines []Line) {
 	if len(lines) == 0 {
